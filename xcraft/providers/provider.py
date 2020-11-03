@@ -16,6 +16,7 @@ class Provider(ABC):
         self,
         *,
         interactive: bool = True,
+        **kwargs,
     ) -> None:
         """Initialize provider.
 
@@ -56,12 +57,6 @@ class Provider(ABC):
 
         Purges any artifacts related to the creation of the environment.
         """
-        ...
-
-    @abstractmethod
-    def execute(self) -> None:
-        """Do your thing."""
-
         ...
 
     @abstractmethod

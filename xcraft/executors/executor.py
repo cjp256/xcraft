@@ -50,14 +50,6 @@ class Executor(ABC):
         self.teardown()
 
     @abstractmethod
-    def clean(self) -> None:
-        """Destructive cleanup of environmnet.
-
-        Purges any artifacts related to the creation of the environment.
-        """
-        ...
-
-    @abstractmethod
     def execute_run(self, command: List[str], **kwargs) -> subprocess.CompletedProcess:
         """Execute command in instance, using subprocess.run().
 
@@ -75,19 +67,6 @@ class Executor(ABC):
         environment, not the host's.
 
         """
-        ...
-
-    @abstractmethod
-    def mount(self, *, source: pathlib.Path, destination: pathlib.Path) -> bool:
-        """Mount host source at destination.
-
-        Any mount configuration must be cleaned up on exit.
-
-        :returns: False if mounting is unsupported by provider. In this case it
-            is advisable to fall back to sync_to() & sync_from().
-
-        """
-
         ...
 
     @abstractmethod

@@ -7,8 +7,6 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from xcraft.util import path
-
 from . import naive_sync
 from .executor import Executor
 
@@ -30,7 +28,6 @@ class LXDCliExecutor(Executor):
         instance_name: str,
         instance_remote: str = "local",
         lxc_path: Optional[pathlib.Path] = None,
-        lxd_path: Optional[pathlib.Path] = None,
     ):
         super().__init__(interactive=interactive)
 
@@ -41,7 +38,6 @@ class LXDCliExecutor(Executor):
         self.instance_name = instance_name
         self.instance_remote = instance_remote
         self.lxc_path = lxc_path
-        self.lxd_path = lxd_path
         self.instance_id = self.instance_remote + ":" + self.instance_name
 
     def _configure_instance_mknod(self) -> None:
@@ -69,17 +65,7 @@ class LXDCliExecutor(Executor):
         )
 
     def _delete(self) -> None:
-        """Purge instance."""
         self._run(["delete", self.instance_id, "--force"], check=True)
-
-    def _find_executables(self) -> bool:
-        if self.lxc_path is None:
-            self.lxc_path = path.which("lxc")
-
-        if self.lxd_path is None:
-            self.lxd_path = path.which("lxd")
-
-        return self.lxc_path is not None and self.lxd_path is not None
 
     def _get_instances(self) -> List[Dict[str, Any]]:
         """Get instance state information."""
@@ -159,12 +145,6 @@ class LXDCliExecutor(Executor):
         """Set instance configuration key."""
         self._run(["config", "set", self.instance_id, key, value], check=True)
 
-    def __enter__(self) -> "MycracftHostLifecycleManager":
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        pass
-
     def _prepare_execute_args(
         self, command: List[str], kwargs: Dict[str, Any]
     ) -> List[str]:
@@ -242,20 +222,24 @@ class LXDCliExecutor(Executor):
         """Stop container."""
         self._run(["stop", self.instance_id], check=True)
 
-    def execute_run(
-        self, *, command: List[str], **kwargs
-    ) -> subprocess.CompletedProcess:
+    def clean(self) -> None:
+        """Purge instance."""
+        self._delete()
+
+    def execute_run(self, command: List[str], **kwargs) -> subprocess.CompletedProcess:
         command = self._prepare_execute_args(command=command, kwargs=kwargs)
         return subprocess.run(command, **kwargs)
 
-    def execute_popen(self, *, command: List[str], **kwargs) -> subprocess.Popen:
+    def execute_popen(self, command: List[str], **kwargs) -> subprocess.Popen:
         command = self._prepare_execute_args(command=command, kwargs=kwargs)
         return subprocess.Popen(command, **kwargs)
 
     def sync_from(self, *, source: pathlib.Path, destination: pathlib.Path) -> None:
         # TODO: check if mount makes source == destination, skip if so.
         if naive_sync.is_target_file(executor=self, target=source):
-            self._pull_file(source=source, destination=destination)
+            self._pull_file(
+                source=source.as_posix(), destination=destination.as_posix()
+            )
         elif naive_sync.is_target_directory(executor=self, target=source):
             # TODO: use mount() if available
             naive_sync.naive_directory_sync_to(
@@ -267,18 +251,25 @@ class LXDCliExecutor(Executor):
     def sync_to(self, *, source: pathlib.Path, destination: pathlib.Path) -> None:
         # TODO: check if mounted, skip sync if source == destination
         if source.is_file():
-            self._push_file(source=source, destination=destination)
+            self._push_file(
+                source=source.as_posix(), destination=destination.as_posix()
+            )
         elif source.is_dir():
             # TODO: use mount() if available
             naive_sync.naive_directory_sync_to(
-                executor=self, source=source, destination=destination
+                executor=self, source=source, destination=destination, delete=True
             )
         else:
             raise FileNotFoundError(f"Source {source} not found.")
 
     def setup(self) -> None:
-        self._configure_image_remote()
-        self._launch()
+        self._setup_image_remote()
+
+        if self._get_instance_state() is None:
+            self._launch()
+        elif not self._is_instance_running():
+            self._start()
+
         self._configure_instance_mknod()
         self._configure_instance_uid_mappings()
 

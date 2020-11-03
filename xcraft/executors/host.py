@@ -20,14 +20,8 @@ class HostExecutor(Executor):
         self.sudo = sudo
         self.sudo_user = sudo_user
 
-    def __enter__(self) -> "HostExecutor":
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        pass
-
     def _prepare_execute_args(
-        self, *, command: List[str], kwargs: Dict[str, Any]
+        self, command: List[str], kwargs: Dict[str, Any]
     ) -> List[str]:
         """Formulate command, accounting for possible env & cwd."""
         env = kwargs.pop("env", dict())
@@ -48,13 +42,11 @@ class HostExecutor(Executor):
     def clean(self) -> None:
         pass
 
-    def execute_run(
-        self, *, command: List[str], **kwargs
-    ) -> subprocess.CompletedProcess:
+    def execute_run(self, command: List[str], **kwargs) -> subprocess.CompletedProcess:
         command = self._prepare_execute_args(command=command, kwargs=kwargs)
         return subprocess.run(command, **kwargs)
 
-    def execute_popen(self, *, command: List[str], **kwargs) -> subprocess.Popen:
+    def execute_popen(self, command: List[str], **kwargs) -> subprocess.Popen:
         command = self._prepare_execute_args(command=command, kwargs=kwargs)
         return subprocess.Popen(command, **kwargs)
 
@@ -76,3 +68,9 @@ class HostExecutor(Executor):
             shutil.copytree(source, destination, dirs_exist_ok=True)
         else:
             raise FileNotFoundError(f"Source {source} not found.")
+
+    def setup(self) -> None:
+        pass
+
+    def teardown(self) -> None:
+        pass

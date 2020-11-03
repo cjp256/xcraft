@@ -1,28 +1,35 @@
 import logging
 
-from xcraft.providers.executors import HostExecutor
+from xcraft.executors.executor import Executor
+from xcraft.executors.host import HostExecutor
 
-from .provider import Provider
+from .executed_provider import ExecutedProvider
 
 logger = logging.getLogger(__name__)
 
 
-class HostProvider(Provider):
+class HostProvider(ExecutedProvider):
     """Run commands directly on host."""
 
     def __init__(
-        self, *, sudo: bool = True, sudo_user: str = "root", interactive: bool = True
+        self,
+        *,
+        executor: Executor,
+        sudo: bool = True,
+        sudo_user: str = "root",
+        interactive: bool = True
     ) -> None:
-        super().__init__(interactive=interactive)
-        self.executor = HostExecutor(
-            interactive=interactive,
-            sudo=sudo,
-            sudo_user=sudo_user,
-        )
 
-    def __enter__(self) -> "HostProvider":
-        self.executor.__enter__()
-        return self
+        if executor is None:
+            executor = HostExecutor(
+                interactive=interactive,
+                sudo=sudo,
+                sudo_user=sudo_user,
+            )
+        super().__init__(interactive=interactive, executor=executor)
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        self.executor.__exit__()
+    def setup(self) -> None:
+        pass
+
+    def teardown(self) -> None:
+        pass

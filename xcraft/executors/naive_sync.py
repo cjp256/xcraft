@@ -3,28 +3,28 @@ import pathlib
 import shutil
 import subprocess
 
-from xcraft.providers import Provider
+from xcraft.executors.executor import Executor
 from xcraft.util import path
 
 logger = logging.getLogger(__name__)
 
 
-def is_target_directory(*, provider: Provider, target: pathlib.Path) -> bool:
-    proc = provider.execute_run(command=["test", "-d", target.as_posix()])
+def is_target_directory(*, executor: Executor, target: pathlib.Path) -> bool:
+    proc = executor.execute_run(command=["test", "-d", target.as_posix()])
     return proc.returncode == 0
 
 
-def is_target_file(*, provider: Provider, target: pathlib.Path) -> bool:
-    proc = provider.execute_run(command=["test", "-f", target.as_posix()])
+def is_target_file(*, executor: Executor, target: pathlib.Path) -> bool:
+    proc = executor.execute_run(command=["test", "-f", target.as_posix()])
     return proc.returncode == 0
 
 
 def naive_directory_sync_from(
-    *, provider: Provider, source: pathlib.Path, destination: pathlib.Path
+    *, executor: Executor, source: pathlib.Path, destination: pathlib.Path
 ) -> None:
     """Naive sync from remote using tarball.
 
-    Relies on only the required Provider interfaces.
+    Relies on only the required Executor.interfaces.
     """
     logger.info(f"Syncing {source}->{destination} to host...")
     destination_path = destination.as_posix()
@@ -40,7 +40,7 @@ def naive_directory_sync_from(
         stdout=subprocess.PIPE,
     )
 
-    target_proc = provider.execute_popen(
+    target_proc = executor.execute_popen(
         ["tar", "xpvf", "-", "-C", destination_path],
         stdin=archive_proc.stdout,
     )
@@ -54,17 +54,19 @@ def naive_directory_sync_from(
 
 
 def naive_directory_sync_to(
-    *, provider: Provider, source: pathlib.Path, destination: pathlib.Path
+    *, executor: Executor, source: pathlib.Path, destination: pathlib.Path, delete=True
 ) -> None:
     """Naive sync to remote using tarball.
 
-    Relies on only the required Provider interfaces.
+    Relies on only the required Executor.interfaces.
     """
     logger.info(f"Syncing {source}->{destination} to build environment...")
     destination_path = destination.as_posix()
 
-    provider.execute_run(["rm", "-rf", destination_path], check=True)
-    provider.execute_run(["mkdir", "-p", destination_path], check=True)
+    if delete is True:
+        executor.execute_run(["rm", "-rf", destination_path], check=True)
+
+    executor.execute_run(["mkdir", "-p", destination_path], check=True)
 
     tar_path = path.which_required(command="tar")
 
@@ -73,7 +75,7 @@ def naive_directory_sync_to(
         stdout=subprocess.PIPE,
     )
 
-    target_proc = provider.execute_popen(
+    target_proc = executor.execute_popen(
         ["tar", "xpvf", "-", "-C", destination_path],
         stdin=archive_proc.stdout,
     )

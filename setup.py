@@ -12,6 +12,7 @@ with open("HISTORY.rst") as history_file:
 
 requirements = [
     "Click>=7.0",
+    "pyyaml>=3.5.1",
 ]
 
 setup_requirements = [
@@ -23,7 +24,7 @@ test_requirements = [
 ]
 
 setup(
-    author="Audrey Roy Greenfeld",
+    author="Canonical",
     author_email="Canonical",
     python_requires=">=3.5",
     classifiers=[
@@ -49,6 +50,7 @@ setup(
     include_package_data=True,
     keywords="xcraft",
     name="xcraft",
+    package_data={"xcraft": ["py.typed"]},
     packages=find_packages(include=["xcraft", "xcraft.*"]),
     setup_requires=setup_requirements,
     test_suite="tests",
