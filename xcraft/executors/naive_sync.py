@@ -36,12 +36,12 @@ def naive_directory_sync_from(
     tar_path = path.which_required(command="tar")
 
     archive_proc = executor.execute_popen(
-        [tar_path, "cpf", "-", "-C", source.as_posix(), "."],
+        [str(tar_path), "cpf", "-", "-C", source.as_posix(), "."],
         stdout=subprocess.PIPE,
     )
 
     target_proc = subprocess.Popen(
-        ["tar", "xpvf", "-", "-C", str(destination)],
+        ["tar", "xpvf", "-", "-C", destination_path],
         stdin=archive_proc.stdout,
     )
 
@@ -76,7 +76,7 @@ def naive_directory_sync_to(
     )
 
     target_proc = executor.execute_popen(
-        ["tar", "xpvf", "-", "-C", destination_path.as_posix()],
+        ["tar", "xpvf", "-", "-C", destination_path],
         stdin=archive_proc.stdout,
     )
 
