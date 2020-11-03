@@ -182,7 +182,8 @@ class LXDProvider(ExecutedProvider):
         # First install fuse and udev, snapd requires them.
         # Snapcraft requires dirmngr
         self.executor.execute_run(
-            ["apt-get", "install", "dirmngr", "udev", "fuse", "--yes"], check=True
+            ["apt-get", "install", "dirmngr", "udev", "fuse", "--yes"],
+            check=True,
         )
 
         # the system needs networking

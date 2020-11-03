@@ -26,22 +26,22 @@ def naive_directory_sync_from(
 
     Relies on only the required Executor.interfaces.
     """
-    logger.info(f"Syncing {source}->{destination} to host...")
     destination_path = destination.as_posix()
 
     if destination.exists():
         shutil.rmtree(destination)
-        destination.mkdir(parents=True)
+
+    destination.mkdir(parents=True)
 
     tar_path = path.which_required(command="tar")
 
     archive_proc = executor.execute_popen(
-        [str(tar_path), "cpf", "-", "-C", source.as_posix(), "."],
+        ["tar", "cpf", "-", "-C", source.as_posix(), "."],
         stdout=subprocess.PIPE,
     )
 
     target_proc = subprocess.Popen(
-        ["tar", "xpvf", "-", "-C", destination_path],
+        [str(tar_path), "xpvf", "-", "-C", destination_path],
         stdin=archive_proc.stdout,
     )
 
@@ -60,7 +60,6 @@ def naive_directory_sync_to(
 
     Relies on only the required Executor.interfaces.
     """
-    logger.info(f"Syncing {source}->{destination} to build environment...")
     destination_path = destination.as_posix()
 
     if delete is True:

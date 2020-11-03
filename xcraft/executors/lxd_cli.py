@@ -235,6 +235,7 @@ class LXDCliExecutor(Executor):
         return subprocess.Popen(command, **kwargs)
 
     def sync_from(self, *, source: pathlib.Path, destination: pathlib.Path) -> None:
+        logger.info(f"Syncing env:{source} -> host:{destination}...")
         # TODO: check if mount makes source == destination, skip if so.
         if naive_sync.is_target_file(executor=self, target=source):
             self._pull_file(
@@ -242,7 +243,7 @@ class LXDCliExecutor(Executor):
             )
         elif naive_sync.is_target_directory(executor=self, target=source):
             # TODO: use mount() if available
-            naive_sync.naive_directory_sync_to(
+            naive_sync.naive_directory_sync_from(
                 executor=self, source=source, destination=destination
             )
         else:
@@ -250,6 +251,7 @@ class LXDCliExecutor(Executor):
 
     def sync_to(self, *, source: pathlib.Path, destination: pathlib.Path) -> None:
         # TODO: check if mounted, skip sync if source == destination
+        logger.info(f"Syncing host:{source} -> env:{destination}...")
         if source.is_file():
             self._push_file(
                 source=source.as_posix(), destination=destination.as_posix()
