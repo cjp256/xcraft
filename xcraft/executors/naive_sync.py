@@ -3,9 +3,8 @@ import pathlib
 import shutil
 import subprocess
 
+from xcraft.providers import Provider
 from xcraft.util import path
-
-from .provider import Provider
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +53,7 @@ def naive_directory_sync_from(
     target_proc.communicate()
 
 
-def _naive_directory_sync_to(
+def naive_directory_sync_to(
     *, provider: Provider, source: pathlib.Path, destination: pathlib.Path
 ) -> None:
     """Naive sync to remote using tarball.

@@ -4,7 +4,7 @@ import shlex
 import subprocess
 from typing import Any, Dict, List, Optional
 
-from xcraft.providers.executors import LXDExecutor
+from xcraft.executors import LXDExecutor
 
 from .provider import Provider
 
@@ -44,15 +44,6 @@ class LXDProvider(Provider):
             instance_name=instance_name,
             instance_remote=instance_remote,
         )
-
-    def __enter__(self) -> "LXDProvider":
-        self._setup_lxd()
-        self.executor.__enter__()
-        self._prepare_instance()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        self.executor.__exit__()
 
     def _setup_lxd(self) -> None:
         """Ensure LXD is installed with required version."""
@@ -106,3 +97,11 @@ class LXDProvider(Provider):
         logger.info(f"Executing in container: {quoted}")
 
         return final_cmd
+
+    def setup(self) -> None:
+        self._setup_lxd()
+        self.executor.__enter__()
+        self._prepare_instance()
+
+    def teardown(self) -> None:
+        self.executor.teardown()

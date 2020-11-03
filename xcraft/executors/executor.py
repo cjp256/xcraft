@@ -29,7 +29,6 @@ class Executor(ABC):
         """
         self.interactive = interactive
 
-    @abstractmethod
     def __enter__(self) -> "Executor":
         """Launch environment, performing any required setup.
 
@@ -37,16 +36,18 @@ class Executor(ABC):
         configuration changes using input(), e.g. installing dependencies.
 
         """
-        ...
 
-    @abstractmethod
+        self.setup()
+        return self
+
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Non-destructive tear-down of environment.
 
         Unmount, close, and shutdown any resources.
 
         """
-        ...
+
+        self.teardown()
 
     @abstractmethod
     def clean(self) -> None:
@@ -115,4 +116,16 @@ class Executor(ABC):
         the most performant option available.
 
         """
+        ...
+
+    @abstractmethod
+    def setup(self) -> None:
+        """Launch environment."""
+
+        ...
+
+    @abstractmethod
+    def teardown(self) -> None:
+        """Tear down environment."""
+
         ...

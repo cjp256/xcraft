@@ -26,7 +26,6 @@ class Provider(ABC):
         """
         self.interactive = interactive
 
-    @abstractmethod
     def __enter__(self) -> "Provider":
         """Launch environment, performing any required setup.
 
@@ -40,16 +39,16 @@ class Provider(ABC):
         step(s).
 
         """
-        ...
+        self.setup()
+        return self
 
-    @abstractmethod
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Non-destructive tear-down of environment.
 
         Unmount, close, and shutdown any resources.
 
         """
-        ...
+        self.teardown()
 
     @abstractmethod
     def clean(self) -> None:
@@ -62,5 +61,17 @@ class Provider(ABC):
     @abstractmethod
     def execute(self) -> None:
         """Do your thing."""
+
+        ...
+
+    @abstractmethod
+    def setup(self) -> None:
+        """Launch environment."""
+
+        ...
+
+    @abstractmethod
+    def teardown(self) -> None:
+        """Tear down environment."""
 
         ...

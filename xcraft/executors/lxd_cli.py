@@ -15,7 +15,7 @@ from .executor import Executor
 logger = logging.getLogger(__name__)
 
 
-class LXDExecutor(Executor):
+class LXDCliExecutor(Executor):
     """Manage LXD Execution environment."""
 
     def __init__(
@@ -43,20 +43,6 @@ class LXDExecutor(Executor):
         self.lxc_path = lxc_path
         self.lxd_path = lxd_path
         self.instance_id = self.instance_remote + ":" + self.instance_name
-
-    def __enter__(self) -> "LXDExecutor":
-        super().__enter__()
-
-        self._configure_image_remote()
-        self._launch()
-        self._configure_instance_mknod()
-        self._configure_instance_uid_mappings()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        super().__exit__(exc_type, exc_val, exc_tb)
-
-        self._stop()
 
     def _configure_instance_mknod(self) -> None:
         """Enable mknod in container, if possible.
@@ -173,6 +159,12 @@ class LXDExecutor(Executor):
         """Set instance configuration key."""
         self._run(["config", "set", self.instance_id, key, value], check=True)
 
+    def __enter__(self) -> "MycracftHostLifecycleManager":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        pass
+
     def _prepare_execute_args(
         self, command: List[str], kwargs: Dict[str, Any]
     ) -> List[str]:
@@ -283,3 +275,12 @@ class LXDExecutor(Executor):
             )
         else:
             raise FileNotFoundError(f"Source {source} not found.")
+
+    def setup(self) -> None:
+        self._configure_image_remote()
+        self._launch()
+        self._configure_instance_mknod()
+        self._configure_instance_uid_mappings()
+
+    def teardown(self) -> None:
+        self._stop()
