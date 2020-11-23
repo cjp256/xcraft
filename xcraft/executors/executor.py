@@ -15,11 +15,7 @@ class Executor(ABC):
 
     """
 
-    def __init__(
-        self,
-        *,
-        interactive: bool = True,
-    ) -> None:
+    def __init__(self, *, interactive: bool = True,) -> None:
         """Initialize provider.
 
         :param interactive: Ask the user before making any privileged actions on
@@ -70,6 +66,13 @@ class Executor(ABC):
         ...
 
     @abstractmethod
+    def create_file(
+        self, *, destination: pathlib.Path, content: bytes, file_mode: str
+    ) -> None:
+        """Create file with content and file mode."""
+        ...
+
+    @abstractmethod
     def sync_from(self, *, source: pathlib.Path, destination: pathlib.Path) -> None:
         """Copy source file/directory from environment to host destination.
 
@@ -100,6 +103,12 @@ class Executor(ABC):
     @abstractmethod
     def setup(self) -> None:
         """Launch environment."""
+
+        ...
+
+    @abstractmethod
+    def supports_mount(self) -> bool:
+        """Flag if executor can mount to target."""
 
         ...
 

@@ -3,7 +3,7 @@ import pathlib
 import subprocess
 from textwrap import dedent
 from time import sleep
-from typing import Optional
+from typing import Dict, Optional
 
 from xcraft.executors.lxd_cli import LXDCliExecutor
 from xcraft.util import path
@@ -23,6 +23,7 @@ class LXDProvider(ExecutedProvider):
     def __init__(
         self,
         *,
+        default_run_environment: Dict[str, str],
         interactive: bool = True,
         executor: Optional[LXDCliExecutor] = None,
         image_name: str = "20.04",
@@ -35,6 +36,7 @@ class LXDProvider(ExecutedProvider):
         lxc_path: Optional[pathlib.Path] = None,
         lxd_path: Optional[pathlib.Path] = None,
     ):
+        self.default_run_environment = default_run_environment
         self.lxc_path = lxc_path
         self.lxd_path = lxd_path
 
@@ -42,6 +44,7 @@ class LXDProvider(ExecutedProvider):
 
         if executor is None:
             executor = LXDCliExecutor(
+                default_run_environment=default_run_environment,
                 interactive=interactive,
                 image_name=image_name,
                 image_remote_addr=image_remote_addr,
@@ -111,7 +114,7 @@ class LXDProvider(ExecutedProvider):
             )
             if proc.stdout is not None:
                 running_state = proc.stdout.decode().strip()
-                if running_state == "degraded":
+                if running_state in ["running", "degraded"]:
                     break
                 logger.debug(f"systemctl is-system-running: {running_state!r}")
                 sleep(0.5)
@@ -182,8 +185,7 @@ class LXDProvider(ExecutedProvider):
         # First install fuse and udev, snapd requires them.
         # Snapcraft requires dirmngr
         self.executor.execute_run(
-            ["apt-get", "install", "dirmngr", "udev", "fuse", "--yes"],
-            check=True,
+            ["apt-get", "install", "dirmngr", "udev", "fuse", "--yes"], check=True,
         )
 
         # the system needs networking

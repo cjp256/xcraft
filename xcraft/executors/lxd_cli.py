@@ -3,6 +3,7 @@ import os
 import pathlib
 import shlex
 import subprocess
+import tempfile
 from typing import Any, Dict, List, Optional
 
 import yaml
@@ -19,6 +20,7 @@ class LXDCliExecutor(Executor):
     def __init__(
         self,
         *,
+        default_run_environment: Dict[str, str],
         interactive: bool = True,
         image_name: str = "20.04",
         image_remote_addr: str = "https://cloud-images.ubuntu.com/buildd/releases",
@@ -31,6 +33,7 @@ class LXDCliExecutor(Executor):
     ):
         super().__init__(interactive=interactive)
 
+        self.default_run_environment = default_run_environment
         self.image_name = image_name
         self.image_remote_addr = image_remote_addr
         self.image_remote_name = image_remote_name
@@ -40,7 +43,35 @@ class LXDCliExecutor(Executor):
         self.lxc_path = lxc_path
         self.instance_id = self.instance_remote + ":" + self.instance_name
 
-    def _configure_instance_mknod(self) -> None:
+    def create_file(
+        self, *, destination: pathlib.Path, content: bytes, file_mode: str
+    ) -> None:
+        """Create file with content and file mode."""
+        temp_file = tempfile.NamedTemporaryFile()
+        temp_file.write(content)
+
+        self._run(
+            [
+                "file",
+                "push",
+                temp_file.name,
+                self.instance_id + destination.as_posix(),
+                "--create-dirs",
+                "--mode",
+                file_mode,
+                "--gid",
+                "0",
+                "--uid",
+                "0",
+            ],
+            check=True,
+        )
+
+    def _get_config_key_idmap(self, uid: int = os.getuid()) -> str:
+        """Map specified uid on host to root in container."""
+        return f"raw.idmap=both {uid!s} 0"
+
+    def _get_config_key_mknod(self) -> str:
         """Enable mknod in container, if possible.
 
         See: https://linuxcontainers.org/lxd/docs/master/syscall-interception
@@ -51,21 +82,21 @@ class LXDCliExecutor(Executor):
         seccomp_listener = kernel_features.get("seccomp_listener", "false")
 
         if seccomp_listener == "true":
-            self._set_config_key(
-                key="security.syscalls.intercept.mknod",
-                value="true",
-            )
+            return "security.syscalls.intercept.mknod=true"
 
-    def _configure_instance_uid_mappings(self) -> None:
-        """Map specified uid on host to root in container."""
-        uid = os.getuid()
-        self._set_config_key(
-            key="raw.idmap",
-            value=f"both {uid!s} 0",
-        )
+        return "security.syscalls.intercept.mknod=false"
 
     def _delete(self) -> None:
         self._run(["delete", self.instance_id, "--force"], check=True)
+
+    def _get_devices(self) -> Dict[str, Any]:
+        proc = self._run(
+            ["config", "device", "show", self.instance_id],
+            stdout=subprocess.PIPE,
+            check=True,
+        )
+
+        return yaml.load(proc.stdout, Loader=yaml.FullLoader)
 
     def _get_instances(self) -> List[Dict[str, Any]]:
         """Get instance state information."""
@@ -94,18 +125,14 @@ class LXDCliExecutor(Executor):
         :returns: dictionary with remote name mapping to config.
         """
         proc = self._run(
-            ["remote", "list", "--format=yaml"],
-            stdout=subprocess.PIPE,
-            check=True,
+            ["remote", "list", "--format=yaml"], stdout=subprocess.PIPE, check=True,
         )
         return yaml.load(proc.stdout, Loader=yaml.FullLoader)
 
     def _get_server_config(self) -> Dict[str, Any]:
         """Get server config that instance is running on."""
         proc = self._run(
-            ["info", self.instance_remote + ":"],
-            stdout=subprocess.PIPE,
-            check=True,
+            ["info", self.instance_remote + ":"], stdout=subprocess.PIPE, check=True,
         )
         return yaml.load(proc.stdout, Loader=yaml.FullLoader)
 
@@ -117,26 +144,18 @@ class LXDCliExecutor(Executor):
 
         return instance_state["status"] == "Running"
 
-    def _launch(self) -> None:
+    def _launch(self, uid: str = os.getuid()) -> None:
         image = ":".join([self.image_remote_name, self.image_name])
 
         self._run(
-            ["launch", image, self.instance_id],
-            check=True,
-        )
-
-    def _mount(self, source: str, destination: str) -> None:
-        """Mount host source directory to target mount point."""
-        device_name = destination.replace("/", "_")
-        self._run(
             [
-                "config",
-                "device",
-                "add",
+                "launch",
+                image,
                 self.instance_id,
-                device_name,
-                f"source={source}",
-                f"path={destination}",
+                "--config",
+                self._get_config_key_idmap(uid),
+                "--config",
+                self._get_config_key_mknod(),
             ],
             check=True,
         )
@@ -149,7 +168,7 @@ class LXDCliExecutor(Executor):
         self, command: List[str], kwargs: Dict[str, Any]
     ) -> List[str]:
         """Formulate command, accounting for possible env & cwd."""
-        env = kwargs.pop("env", dict())
+        env = kwargs.pop("env", self.default_run_environment)
         cwd = kwargs.pop("cwd", None)
 
         final_cmd = [str(self.lxc_path), "exec", self.instance_id, "--", "env"]
@@ -169,15 +188,13 @@ class LXDCliExecutor(Executor):
     def _pull_file(self, *, source: str, destination: str) -> None:
         """Get file from instance."""
         self._run(
-            ["file", "pull", self.instance_id + source, destination],
-            check=True,
+            ["file", "pull", self.instance_id + source, destination], check=True,
         )
 
     def _push_file(self, *, source: str, destination: str) -> None:
         """Push file to instance."""
         self._run(
-            ["file", "push", source, self.instance_id + destination],
-            check=True,
+            ["file", "push", source, self.instance_id + destination], check=True,
         )
 
     def _run(
@@ -224,6 +241,9 @@ class LXDCliExecutor(Executor):
 
     def clean(self) -> None:
         """Purge instance."""
+        if self._get_instance_state() is None:
+            return
+
         self._delete()
 
     def execute_run(self, command: List[str], **kwargs) -> subprocess.CompletedProcess:
@@ -233,6 +253,41 @@ class LXDCliExecutor(Executor):
     def execute_popen(self, command: List[str], **kwargs) -> subprocess.Popen:
         command = self._prepare_execute_args(command=command, kwargs=kwargs)
         return subprocess.Popen(command, **kwargs)
+
+    def _is_mounted(self, *, source: pathlib.Path, destination: pathlib.Path) -> None:
+        disks = [d for d in self._get_devices().values() if d.get("type") == "disk"]
+        for disk in disks:
+            if (
+                disk.get("path") == destination.as_posix()
+                and disk.get("source") == source.as_posix()
+            ):
+                return True
+        return False
+
+    def mount(self, *, source: pathlib.Path, destination: pathlib.Path) -> None:
+        """Mount host source directory to target mount point.
+
+        Checks first to see if already mounted."""
+        if self._is_mounted(source=source, destination=destination):
+            return
+
+        device_name = destination.as_posix().replace("/", "_")
+        self._run(
+            [
+                "config",
+                "device",
+                "add",
+                self.instance_id,
+                device_name,
+                "disk",
+                f"source={source.as_posix()}",
+                f"path={destination.as_posix()}",
+            ],
+            check=True,
+        )
+
+    def supports_mount(self) -> bool:
+        return self.instance_remote == "local"
 
     def sync_from(self, *, source: pathlib.Path, destination: pathlib.Path) -> None:
         logger.info(f"Syncing env:{source} -> host:{destination}...")
@@ -272,8 +327,8 @@ class LXDCliExecutor(Executor):
         elif not self._is_instance_running():
             self._start()
 
-        self._configure_instance_mknod()
-        self._configure_instance_uid_mappings()
-
     def teardown(self) -> None:
+        if self._get_instance_state() is None:
+            return
+
         self._stop()
