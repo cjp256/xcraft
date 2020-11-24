@@ -3,6 +3,7 @@ import logging
 import os
 import pathlib
 import tempfile
+from typing import Optional, Dict
 
 from xcraft.executors.executor import Executor
 
@@ -14,10 +15,19 @@ logger = logging.getLogger(__name__)
 class ExecutedProvider(Provider):
     """Guarantees availability of executor and provides common helper methods."""
 
-    def __init__(self, *, interactive: bool, executor: Executor, **kwargs) -> None:
+    def __init__(
+        self,
+        *,
+        interactive: bool,
+        executor: Executor,
+        default_run_environment: Dict[str, str],
+        **kwargs
+    ) -> None:
         super().__init__(interactive=interactive, **kwargs)
 
         self.executor = executor
+
+        self.default_run_environment = default_run_environment
 
     def _install_file(self, *, path: str, content: str, permissions: str) -> None:
         """Install file into target with specified content and permissions."""

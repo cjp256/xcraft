@@ -36,7 +36,6 @@ class LXDProvider(ExecutedProvider):
         lxc_path: Optional[pathlib.Path] = None,
         lxd_path: Optional[pathlib.Path] = None,
     ):
-        self.default_run_environment = default_run_environment
         self.lxc_path = lxc_path
         self.lxd_path = lxd_path
 
@@ -59,7 +58,11 @@ class LXDProvider(ExecutedProvider):
         self.executor: LXDCliExecutor = executor
         self._update_executable_paths()
 
-        super().__init__(interactive=interactive, executor=executor)
+        super().__init__(
+            interactive=interactive,
+            executor=executor,
+            default_run_environment=default_run_environment,
+        )
 
     def _verify_lxd_version(self) -> None:
         if self.lxd_path is None:

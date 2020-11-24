@@ -1,4 +1,5 @@
 import logging
+from typing import Dict
 
 from xcraft.executors.executor import Executor
 from xcraft.executors.host import HostExecutor
@@ -14,6 +15,7 @@ class HostProvider(ExecutedProvider):
     def __init__(
         self,
         *,
+        default_run_environment: Dict[str, str],
         executor: Executor,
         sudo: bool = True,
         sudo_user: str = "root",
@@ -24,7 +26,12 @@ class HostProvider(ExecutedProvider):
             executor = HostExecutor(
                 interactive=interactive, sudo=sudo, sudo_user=sudo_user,
             )
-        super().__init__(interactive=interactive, executor=executor)
+
+        super().__init__(
+            interactive=interactive,
+            executor=executor,
+            default_run_environment=default_run_environment,
+        )
 
     def setup(self) -> None:
         pass
