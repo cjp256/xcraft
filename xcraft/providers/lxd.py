@@ -199,14 +199,10 @@ class LXDProvider(ExecutedProvider):
         self.executor.execute_run(["systemctl", "start", "snapd"], check=True)
         self.executor.execute_run(["snap", "wait", "system", "seed.loaded"], check=True)
 
-    def clean(self) -> None:
-        self.teardown()
-        self.executor.clean()
-
     def setup(self) -> None:
         self._setup_lxd()
         self.executor.__enter__()
         self._prepare_instance()
 
-    def teardown(self) -> None:
-        self.executor.teardown()
+    def teardown(self, *, clean: bool = False) -> None:
+        self.executor.teardown(clean=clean)

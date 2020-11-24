@@ -47,21 +47,16 @@ class Provider(ABC):
         self.teardown()
 
     @abstractmethod
-    def clean(self) -> None:
-        """Destructive cleanup of environmnet.
-
-        Purges any artifacts related to the creation of the environment.
-        """
-        ...
-
-    @abstractmethod
     def setup(self) -> None:
         """Launch environment."""
 
         ...
 
     @abstractmethod
-    def teardown(self) -> None:
-        """Tear down environment."""
+    def teardown(self, *, clean: bool = False) -> None:
+        """Tear down environment, cleaning if specified.
+
+        If clean is True, purge environment.
+        """
 
         ...

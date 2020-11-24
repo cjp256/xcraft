@@ -67,7 +67,7 @@ class LXDCliExecutor(Executor):
             check=True,
         )
 
-    def _get_config_key_idmap(self, uid: int = os.getuid()) -> str:
+    def _get_config_key_idmap(self, *, uid: str = str(os.getuid())) -> str:
         """Map specified uid on host to root in container."""
         return f"raw.idmap=both {uid!s} 0"
 
@@ -144,7 +144,7 @@ class LXDCliExecutor(Executor):
 
         return instance_state["status"] == "Running"
 
-    def _launch(self, uid: str = os.getuid()) -> None:
+    def _launch(self, *, uid: str = str(os.getuid())) -> None:
         image = ":".join([self.image_remote_name, self.image_name])
 
         self._run(
@@ -153,7 +153,7 @@ class LXDCliExecutor(Executor):
                 image,
                 self.instance_id,
                 "--config",
-                self._get_config_key_idmap(uid),
+                self._get_config_key_idmap(uid=uid),
                 "--config",
                 self._get_config_key_mknod(),
             ],
@@ -239,13 +239,6 @@ class LXDCliExecutor(Executor):
         """Stop container."""
         self._run(["stop", self.instance_id], check=True)
 
-    def clean(self) -> None:
-        """Purge instance."""
-        if self._get_instance_state() is None:
-            return
-
-        self._delete()
-
     def execute_run(self, command: List[str], **kwargs) -> subprocess.CompletedProcess:
         command = self._prepare_execute_args(command=command, kwargs=kwargs)
         return subprocess.run(command, **kwargs)
@@ -254,7 +247,10 @@ class LXDCliExecutor(Executor):
         command = self._prepare_execute_args(command=command, kwargs=kwargs)
         return subprocess.Popen(command, **kwargs)
 
-    def _is_mounted(self, *, source: pathlib.Path, destination: pathlib.Path) -> None:
+    def exists(self) -> bool:
+        return self._get_instance_state() is not None
+
+    def _is_mounted(self, *, source: pathlib.Path, destination: pathlib.Path) -> bool:
         disks = [d for d in self._get_devices().values() if d.get("type") == "disk"]
         for disk in disks:
             if (
@@ -327,8 +323,11 @@ class LXDCliExecutor(Executor):
         elif not self._is_instance_running():
             self._start()
 
-    def teardown(self) -> None:
+    def teardown(self, *, clean: bool = False) -> None:
         if self._get_instance_state() is None:
             return
 
         self._stop()
+
+        if clean:
+            self._delete()

@@ -72,5 +72,5 @@ class HostExecutor(Executor):
     def setup(self) -> None:
         pass
 
-    def teardown(self) -> None:
+    def teardown(self, *, clean: bool = False) -> None:
         pass

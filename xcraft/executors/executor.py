@@ -25,6 +25,13 @@ class Executor(ABC):
         """
         self.interactive = interactive
 
+    @abstractmethod
+    def create_file(
+        self, *, destination: pathlib.Path, content: bytes, file_mode: str
+    ) -> None:
+        """Create file with content and file mode."""
+        ...
+
     def __enter__(self) -> "Executor":
         """Launch environment, performing any required setup.
 
@@ -66,10 +73,9 @@ class Executor(ABC):
         ...
 
     @abstractmethod
-    def create_file(
-        self, *, destination: pathlib.Path, content: bytes, file_mode: str
-    ) -> None:
-        """Create file with content and file mode."""
+    def exists(self) -> bool:
+        """Check if executed environment exists and/or ready."""
+
         ...
 
     @abstractmethod
@@ -113,7 +119,7 @@ class Executor(ABC):
         ...
 
     @abstractmethod
-    def teardown(self) -> None:
+    def teardown(self, *, clean: bool = False) -> None:
         """Tear down environment."""
 
         ...
