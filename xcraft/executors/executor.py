@@ -15,11 +15,7 @@ class Executor(ABC):
 
     """
 
-    def __init__(
-        self,
-        *,
-        interactive: bool = True,
-    ) -> None:
+    def __init__(self, *, interactive: bool = True,) -> None:
         """Initialize provider.
 
         :param interactive: Ask the user before making any privileged actions on
