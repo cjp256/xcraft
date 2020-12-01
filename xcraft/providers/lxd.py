@@ -39,6 +39,7 @@ class LXDProvider(ExecutedProvider):
         self.lxc_path = lxc_path
         self.lxd_path = lxd_path
 
+        self.image_name = image_name
         self.instance_name = instance_name
 
         if executor is None:
@@ -200,7 +201,12 @@ class LXDProvider(ExecutedProvider):
             ["apt-get", "install", "snapd", "sudo", "--yes"], check=True
         )
         self.executor.execute_run(["systemctl", "start", "snapd"], check=True)
-        self.executor.execute_run(["snap", "wait", "system", "seed.loaded"], check=True)
+
+        if float(self.image_name) >= 18.04:
+            self.executor.execute_run(["snap", "wait", "system", "seed.loaded"], check=True)
+        else:
+            # XXX: better way to ensure snapd is ready on core?
+            sleep(5)
 
     def setup(self) -> None:
         self._setup_lxd()
