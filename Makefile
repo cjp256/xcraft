@@ -52,23 +52,30 @@ clean-test: ## remove test and coverage artifacts
 	rm -fr .pytest_cache
 
 .PHONY: autoformat
-autoformat: ## check style with flake8
-	black xcraft tests
-	isort xcraft tests
-	autoflake --remove-all-unused-imports -ri xcraft tests
+autoformat:
+	isort .
+	autoflake --remove-all-unused-imports -ri .
 	black .
 
 .PHONY: lint
-lint: ## check style with flake8
+lint:
 	flake8 xcraft tests
 	mypy xcraft tests
 
-.PHONY: test
-test: ## run tests quickly with the default Python
+.PHONY: test-black
+test-black:
+	black --check --diff .
+
+.PHONY: test-isort
+test-isort:
+	isort --check .
+
+.PHONY: test-units
+test-units:
 	pytest
 
-.PHONY: test-all
-test-all: ## run tests on every Python version with tox
+.PHONY: tests
+tests:
 	tox
 
 .PHONY: coverage

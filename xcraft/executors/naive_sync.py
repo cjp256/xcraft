@@ -36,11 +36,13 @@ def naive_directory_sync_from(
     tar_path = path.which_required(command="tar")
 
     archive_proc = executor.execute_popen(
-        ["tar", "cpf", "-", "-C", source.as_posix(), "."], stdout=subprocess.PIPE,
+        ["tar", "cpf", "-", "-C", source.as_posix(), "."],
+        stdout=subprocess.PIPE,
     )
 
     target_proc = subprocess.Popen(
-        [str(tar_path), "xpvf", "-", "-C", destination_path], stdin=archive_proc.stdout,
+        [str(tar_path), "xpvf", "-", "-C", destination_path],
+        stdin=archive_proc.stdout,
     )
 
     # Allow archive_proc to receive a SIGPIPE if destination_proc exits.
@@ -68,11 +70,13 @@ def naive_directory_sync_to(
     tar_path = path.which_required(command="tar")
 
     archive_proc = subprocess.Popen(
-        [tar_path, "cpf", "-", "-C", str(source), "."], stdout=subprocess.PIPE,
+        [tar_path, "cpf", "-", "-C", str(source), "."],
+        stdout=subprocess.PIPE,
     )
 
     target_proc = executor.execute_popen(
-        ["tar", "xpvf", "-", "-C", destination_path], stdin=archive_proc.stdout,
+        ["tar", "xpvf", "-", "-C", destination_path],
+        stdin=archive_proc.stdout,
     )
 
     # Allow archive_proc to receive a SIGPIPE if destination_proc exits.

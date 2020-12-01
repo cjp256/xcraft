@@ -12,7 +12,12 @@ class Provider(ABC):
 
     """
 
-    def __init__(self, *, interactive: bool = True, **kwargs,) -> None:
+    def __init__(
+        self,
+        *,
+        interactive: bool = True,
+        **kwargs,
+    ) -> None:
         """Initialize provider.
 
         :param interactive: Ask the user before making any privileged actions on

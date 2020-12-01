@@ -24,7 +24,9 @@ class HostProvider(ExecutedProvider):
 
         if executor is None:
             executor = HostExecutor(
-                interactive=interactive, sudo=sudo, sudo_user=sudo_user,
+                interactive=interactive,
+                sudo=sudo,
+                sudo_user=sudo_user,
             )
 
         super().__init__(

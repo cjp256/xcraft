@@ -189,7 +189,8 @@ class LXDProvider(ExecutedProvider):
         # First install fuse and udev, snapd requires them.
         # Snapcraft requires dirmngr
         self.executor.execute_run(
-            ["apt-get", "install", "dirmngr", "udev", "fuse", "--yes"], check=True,
+            ["apt-get", "install", "dirmngr", "udev", "fuse", "--yes"],
+            check=True,
         )
 
         # the system needs networking
@@ -203,7 +204,9 @@ class LXDProvider(ExecutedProvider):
         self.executor.execute_run(["systemctl", "start", "snapd"], check=True)
 
         if float(self.image_name) >= 18.04:
-            self.executor.execute_run(["snap", "wait", "system", "seed.loaded"], check=True)
+            self.executor.execute_run(
+                ["snap", "wait", "system", "seed.loaded"], check=True
+            )
         else:
             # XXX: better way to ensure snapd is ready on core?
             sleep(5)

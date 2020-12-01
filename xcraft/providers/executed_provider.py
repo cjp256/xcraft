@@ -3,7 +3,7 @@ import logging
 import os
 import pathlib
 import tempfile
-from typing import Optional, Dict
+from typing import Dict
 
 from xcraft.executors.executor import Executor
 

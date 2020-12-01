@@ -125,14 +125,18 @@ class LXDCliExecutor(Executor):
         :returns: dictionary with remote name mapping to config.
         """
         proc = self._run(
-            ["remote", "list", "--format=yaml"], stdout=subprocess.PIPE, check=True,
+            ["remote", "list", "--format=yaml"],
+            stdout=subprocess.PIPE,
+            check=True,
         )
         return yaml.load(proc.stdout, Loader=yaml.FullLoader)
 
     def _get_server_config(self) -> Dict[str, Any]:
         """Get server config that instance is running on."""
         proc = self._run(
-            ["info", self.instance_remote + ":"], stdout=subprocess.PIPE, check=True,
+            ["info", self.instance_remote + ":"],
+            stdout=subprocess.PIPE,
+            check=True,
         )
         return yaml.load(proc.stdout, Loader=yaml.FullLoader)
 
@@ -188,13 +192,15 @@ class LXDCliExecutor(Executor):
     def _pull_file(self, *, source: str, destination: str) -> None:
         """Get file from instance."""
         self._run(
-            ["file", "pull", self.instance_id + source, destination], check=True,
+            ["file", "pull", self.instance_id + source, destination],
+            check=True,
         )
 
     def _push_file(self, *, source: str, destination: str) -> None:
         """Push file to instance."""
         self._run(
-            ["file", "push", source, self.instance_id + destination], check=True,
+            ["file", "push", source, self.instance_id + destination],
+            check=True,
         )
 
     def _run(
