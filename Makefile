@@ -54,7 +54,7 @@ clean-test: ## remove test and coverage artifacts
 .PHONY: autoformat
 autoformat:
 	isort .
-	autoflake --remove-all-unused-imports -ri .
+	autoflake --remove-all-unused-imports --ignore-init-module-imports -ri .
 	black .
 
 .PHONY: lint

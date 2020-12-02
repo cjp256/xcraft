@@ -26,6 +26,7 @@ class LXC:
         command: List[str],
         project: str = "default",
         check=True,
+        input=None,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -38,7 +39,7 @@ class LXC:
 
         try:
             proc = subprocess.run(
-                command, check=check, stderr=stderr, stdin=stdin, stdout=stdout
+                command, check=check, input=input, stderr=stderr, stdin=stdin, stdout=stdout
             )
         except subprocess.CalledProcessError as error:
             logger.info(f"Failed to execute: {error.output}")
@@ -182,16 +183,6 @@ class LXC:
             project=project,
         )
 
-    def list(
-        self, *, instance_id: str, project: str = "default"
-    ) -> List[Dict[str, Any]]:
-        """List instances."""
-        proc = self._run(
-            command=["list", "--format=yaml", instance_id], project=project,
-        )
-
-        return yaml.load(proc.stdout, Loader=yaml.FullLoader)
-
     def info(
         self, *, remote: str = "local", project: str = "default"
     ) -> Dict[str, Any]:
@@ -223,11 +214,46 @@ class LXC:
 
         self._run(command=command, project=project)
 
+    def list(
+        self, *, project: str = "default"
+    ) -> List[Dict[str, Any]]:
+        """List instances."""
+        proc = self._run(
+            command=["list", "--format=yaml"], project=project,
+        )
+
+        return yaml.load(proc.stdout, Loader=yaml.FullLoader)
+
+    def profile_edit(self, *, name: str, project: str = "local", config: Dict[str, Any]) -> None:
+        cfg = yaml.dump(config)
+        self._run(command=["profile", "edit", name], project=project, input=cfg.encode(), stdin=subprocess.PIPE)
+
+    def profile_show(self, *, name: str, project: str = "local") -> Dict[str, Any]:
+        """Get profile."""
+        proc = self._run(command=["profile", "show", name], project=project)
+        return yaml.load(proc.stdout, Loader=yaml.FullLoader)
+
+    def project_create(self, *, name: str) -> None:
+        """Create project."""
+        self._run(command=["project", "create", name])
+
+    def project_list(self) -> List[Dict[str, Any]]:
+        """Get list of remotes.
+
+        :returns: dictionary with remote name mapping to config.
+        """
+        proc = self._run(command=["project", "list", "--format=yaml"])
+        return yaml.load(proc.stdout, Loader=yaml.FullLoader)
+
+    def project_delete(self, *, name: str) -> None:
+        """Delete project, if exists."""
+        self._run(command=["project", "delete", name])
+
     def remote_add(self, *, name: str, addr: str, protocol: str) -> None:
         """Add a public remote."""
         self._run(command=["remote", "add", name, addr, f"--protocol={protocol}"])
 
-    def remote_list(self) -> Dict[str, Any]:
+    def remote_list(self) -> List[Dict[str, Any]]:
         """Get list of remotes.
 
         :returns: dictionary with remote name mapping to config.
