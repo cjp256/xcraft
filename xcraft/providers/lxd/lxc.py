@@ -227,7 +227,7 @@ class LXC:
         command = [
             "file",
             "push",
-            source.name,
+            source.as_posix(),
             f"{remote}:{instance}{destination.as_posix()}",
         ]
 
@@ -329,8 +329,7 @@ class LXC:
             project=project,
         )
 
-        images = yaml.load(proc.stdout, Loader=yaml.FullLoader)
-        return [i["fingerprint"] for i in images]
+        return yaml.load(proc.stdout, Loader=yaml.FullLoader)
 
     def list(
         self,
@@ -395,6 +394,25 @@ class LXC:
     def project_delete(self, *, project: str, remote: str = "local") -> None:
         """Delete project, if exists."""
         self._run(command=["project", "delete", f"{remote}:{project}"])
+
+    def publish(
+        self,
+        *,
+        alias: str,
+        instance: str,
+        project: str,
+        force: bool = True,
+        remote: str = "local",
+    ) -> None:
+        """Create project."""
+        command = ["publish", "--alias", alias, f"{remote}:{instance}"]
+        if force:
+            command.append("--force")
+
+        self._run(
+            command=command,
+            project=project,
+        )
 
     def remote_add(self, *, remote: str, addr: str, protocol: str) -> None:
         """Add a public remote."""
@@ -464,7 +482,7 @@ def purge_project(*, lxc: LXC, project: str = "default", remote: str = "local") 
     # Cleanup any outstanding images.
     for image in lxc.image_list(project=project):
         logger.warning(f"Deleting image {image}.")
-        lxc.image_delete(image=image, project=project, remote=remote)
+        lxc.image_delete(image=image["fingerprint"], project=project, remote=remote)
 
     # Cleanup project.
     logger.warning(f"Deleting project {project}.")

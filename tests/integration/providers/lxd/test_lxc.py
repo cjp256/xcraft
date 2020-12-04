@@ -3,56 +3,6 @@ import subprocess
 
 import pytest
 
-from xcraft.providers.lxd import LXC
-from xcraft.providers.lxd.lxc import purge_project
-
-
-def run(cmd, **kwargs):
-    return subprocess.run(
-        cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, check=True, **kwargs
-    )
-
-
-@pytest.fixture()
-def lxd():
-    lxc_path = pathlib.Path("/snap/bin/lxc")
-    if lxc_path.exists():
-        already_installed = True
-    else:
-        already_installed = False
-        run(["sudo", "snap", "install", "lxd"])
-
-    yield lxc_path
-
-    if not already_installed:
-        run(["sudo", "snap", "remove", "lxd"])
-
-
-@pytest.fixture()
-def lxc(lxd):
-    yield LXC()
-
-
-@pytest.fixture()
-def project(lxc):
-    project = "xcraft-test-project"
-    purge_project(lxc=lxc, project=project)
-
-    lxc.project_create(project=project)
-
-    default_cfg = lxc.profile_show(profile="default", project="default")
-    lxc.profile_edit(profile="default", project=project, config=default_cfg)
-
-    projects = lxc.project_list()
-    assert project in projects
-
-    instances = lxc.list(project=project)
-    assert instances == []
-
-    yield project
-
-    purge_project(lxc=lxc, project=project)
-
 
 def test_project_default_cfg(lxc, project):
     default_cfg = lxc.profile_show(profile="default", project="default")
@@ -149,3 +99,45 @@ def test_image_delete(lxc, project):
 
     images = lxc.image_list(project=project)
     assert images == []
+
+
+def test_file_push(instance, lxc, project, tmp_path):
+    tf = tmp_path / "test.txt"
+    tf.write_text("this is a test")
+
+    lxc.file_push(
+        instance=instance,
+        project=project,
+        source=tf,
+        destination=pathlib.Path("/tmp/foo"),
+    )
+
+    proc = lxc.exec(
+        instance="t1",
+        command=["cat", "/tmp/foo"],
+        project=project,
+        capture_output=True,
+    )
+    assert proc.stdout == b"this is a test"
+
+
+def test_file_pull(instance, lxc, project, tmp_path):
+    tf = tmp_path / "test.txt"
+    tf.write_text("this is a test")
+
+    out_path = tmp_path / "out.txt"
+
+    lxc.file_push(
+        instance=instance,
+        project=project,
+        source=tf,
+        destination=pathlib.Path("/tmp/foo"),
+    )
+    lxc.file_pull(
+        instance=instance,
+        project=project,
+        source=pathlib.Path("/tmp/foo"),
+        destination=out_path,
+    )
+
+    assert out_path.read_text() == "this is a test"

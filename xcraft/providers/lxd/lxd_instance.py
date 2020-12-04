@@ -45,12 +45,13 @@ class LXDInstance(Executor):
         uid: int = 0,
     ) -> None:
         """Create file with content and file mode."""
-        temp_file = tempfile.NamedTemporaryFile()
-        temp_file.write(content)
+        with tempfile.NamedTemporaryFile(delete=False) as tf:
+            tf.write(content)
+            tf.flush()
 
         self.lxc.file_push(
             instance=self.name,
-            source=pathlib.Path(temp_file.name),
+            source=pathlib.Path(tf.name),
             destination=destination,
             mode=file_mode,
             gid=str(gid),
@@ -58,6 +59,8 @@ class LXDInstance(Executor):
             project=self.project,
             remote=self.remote,
         )
+
+        os.unlink(tf.name)
 
     def delete(self, force: bool = True) -> None:
         return self.lxc.delete(
@@ -190,6 +193,14 @@ class LXDInstance(Executor):
 
         self._setup_wait_for_systemd()
 
+        self.execute_run(
+            command=["systemctl", "enable", "systemd-networkd"], check=True
+        )
+
+        self.execute_run(
+            command=["systemctl", "restart", "systemd-networkd"], check=True
+        )
+
         # Use resolv.conf managed by systemd-resolved.
         self.execute_run(
             command=[
@@ -204,13 +215,11 @@ class LXDInstance(Executor):
         self.execute_run(
             command=["systemctl", "enable", "systemd-resolved"], check=True
         )
-        self.execute_run(
-            command=["systemctl", "enable", "systemd-networkd"], check=True
-        )
 
         self.execute_run(
             command=["systemctl", "restart", "systemd-resolved"], check=True
         )
+
         self.execute_run(
             command=["systemctl", "restart", "systemd-networkd"], check=True
         )
@@ -237,7 +246,10 @@ class LXDInstance(Executor):
         )
         self.execute_run(command=["systemctl", "start", "snapd"], check=True)
 
-        if float(self.image) >= 18.04:
+        proc = self.execute_run(command=["lsb_release", "-rs"], check=True)
+        release = proc.stdout.decode()
+
+        if float(release) >= 18.04:
             self.execute_run(
                 command=["snap", "wait", "system", "seed.loaded"], check=True
             )
