@@ -13,10 +13,7 @@ logger = logging.getLogger(__name__)
 class HostExecutor(Executor):
     """Run commands directly on host."""
 
-    def __init__(
-        self, *, sudo: bool = True, sudo_user: str = "root", interactive: bool = True
-    ) -> None:
-        super().__init__(interactive=interactive)
+    def __init__(self, *, sudo: bool = True, sudo_user: str = "root") -> None:
         self.sudo = sudo
         self.sudo_user = sudo_user
 

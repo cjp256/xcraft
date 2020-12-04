@@ -1,6 +1,7 @@
 import logging
 import pathlib
 import shlex
+import shutil
 import subprocess
 from typing import Any, Dict, List, Optional
 
@@ -13,10 +14,12 @@ class LXC:
     """Wrapper for lxc."""
 
     def __init__(
-        self, *, lxc_path: pathlib.Path = pathlib.Path("/snap/bin/lxc"),
+        self,
+        *,
+        lxc_path: pathlib.Path = pathlib.Path("/snap/bin/lxc"),
     ):
         if lxc_path is None:
-            self.lxc_path = pathlib.Path("lxc")
+            self.lxc_path: pathlib.Path = pathlib.Path("lxc")
         else:
             self.lxc_path = lxc_path
 
@@ -27,7 +30,6 @@ class LXC:
         project: str = "default",
         check=True,
         input=None,
-        stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     ) -> subprocess.CompletedProcess:
@@ -35,26 +37,32 @@ class LXC:
         command = [str(self.lxc_path), "--project", project, *command]
         quoted = " ".join([shlex.quote(c) for c in command])
 
-        logger.info(f"Executing on host: {quoted}")
+        logger.warning(f"Executing on host: {quoted}")
 
         try:
-            proc = subprocess.run(
-                command, check=check, input=input, stderr=stderr, stdin=stdin, stdout=stdout
-            )
+            if input is not None:
+                proc = subprocess.run(
+                    command, check=check, input=input, stderr=stderr, stdout=stdout
+                )
+            else:
+                proc = subprocess.run(
+                    command, check=check, stderr=stderr, stdout=stdout
+                )
         except subprocess.CalledProcessError as error:
             logger.info(f"Failed to execute: {error.output}")
             raise error
 
         return proc
 
-    def config_device_add(
+    def config_device_add_disk(
         self,
         *,
-        instance_id: str,
+        instance: str,
         source: pathlib.Path,
         destination: pathlib.Path,
-        device_name: Optional[str],
+        device_name: Optional[str] = None,
         project: str = "default",
+        remote: str = "local",
     ) -> None:
         """Mount host source directory to target mount point."""
         if device_name is None:
@@ -65,7 +73,7 @@ class LXC:
                 "config",
                 "device",
                 "add",
-                instance_id,
+                f"{remote}:{instance}",
                 device_name,
                 "disk",
                 f"source={source.as_posix()}",
@@ -75,35 +83,64 @@ class LXC:
         )
 
     def config_device_show(
-        self, *, instance_id: str, project: str = "default"
+        self, *, instance: str, project: str = "default", remote: str = "local"
     ) -> Dict[str, Any]:
         proc = self._run(
-            command=["config", "device", "show", instance_id], project=project,
+            command=["config", "device", "show", f"{remote}:{instance}"],
+            project=project,
         )
 
         return yaml.load(proc.stdout, Loader=yaml.FullLoader)
 
     def config_set(
-        self, *, instance_id: str, key: str, value: str, project: str = "default"
+        self,
+        *,
+        instance: str,
+        key: str,
+        value: str,
+        project: str = "default",
+        remote: str = "local",
     ) -> None:
         """Set instance configuration key."""
-        self._run(command=["config", "set", instance_id, key, value], project=project)
+        self._run(
+            command=["config", "set", f"{remote}:{instance}", key, value],
+            project=project,
+        )
 
-    def delete(self, *, instance_id: str, project: str = "default") -> None:
+    def delete(
+        self,
+        *,
+        instance: str,
+        project: str = "default",
+        remote: str = "local",
+        force=True,
+    ) -> None:
         """Delete instance."""
-        self._run(command=["delete", instance_id, "--force"], project=project)
+        command = ["delete", f"{remote}:{instance}"]
 
-    def execute_command(
+        if force:
+            command.append("--force")
+
+        self._run(command=command, project=project)
+
+    def _formulate_command(
         self,
         *,
         command: List[str],
-        instance_id: str,
+        instance: str,
         cwd: str = "/root",
         mode: str = "auto",
         project: str = "default",
+        remote: str = "local",
     ) -> List[str]:
         """Formulate command to run."""
-        final_cmd = [str(self.lxc_path), "--project", project, "exec", instance_id]
+        final_cmd = [
+            str(self.lxc_path),
+            "--project",
+            project,
+            "exec",
+            f"{remote}:{instance}",
+        ]
 
         if cwd != "/root":
             final_cmd.extend(["--cwd", cwd])
@@ -115,156 +152,320 @@ class LXC:
 
         return final_cmd
 
-    def execute(
+    def exec(
         self,
         *,
         command: List[str],
-        instance_id: str,
+        instance: str,
         cwd: str = "/root",
         mode: str = "auto",
         project: str = "default",
+        remote: str = "local",
         runner=subprocess.run,
         **kwargs,
     ):
         """Execute command in instance with specified runner."""
-        command = self.execute_command(
+        command = self._formulate_command(
             command=command,
-            instance_id=instance_id,
+            instance=instance,
             cwd=cwd,
             mode=mode,
             project=project,
+            remote=remote,
         )
 
         quoted = " ".join([shlex.quote(c) for c in command])
-        logger.info(f"Executing in container: {quoted}")
+        logger.warning(f"Executing in container: {quoted}")
 
         return runner(command, **kwargs)
 
     def file_pull(
         self,
         *,
-        instance_id: str,
-        source: str,
-        destination: str,
+        instance: str,
+        source: pathlib.Path,
+        destination: pathlib.Path,
+        create_dirs: bool = True,
+        recursive: bool = False,
         project: str = "default",
+        remote: str = "local",
     ) -> None:
         """Retrieve file from instance."""
+        command = [
+            "file",
+            "pull",
+            f"{remote}:{instance}{source.as_posix()}",
+            destination.as_posix(),
+        ]
+
+        if create_dirs:
+            command.append("--create-dirs")
+
+        if recursive:
+            command.append("--recursive")
+
         self._run(
-            command=["file", "pull", instance_id + source, destination],
+            command=command,
             project=project,
         )
 
     def file_push(
         self,
         *,
-        instance_id: str,
+        instance: str,
         source: pathlib.Path,
         destination: pathlib.Path,
-        gid: str = "0",
-        uid: str = "0",
-        file_mode: str = "0644",
+        create_dirs: bool = True,
+        recursive: bool = False,
+        gid: str = "-1",
+        uid: str = "-1",
+        mode: Optional[str] = None,
         project: str = "default",
+        remote: str = "local",
     ) -> None:
         """Create file with content and file mode."""
+        command = [
+            "file",
+            "push",
+            source.name,
+            f"{remote}:{instance}{destination.as_posix()}",
+        ]
+
+        if create_dirs:
+            command.append("--create-dirs")
+
+        if recursive:
+            command.append("--recursive")
+
+        if mode:
+            command.append(f"--mode={mode}")
+
+        if gid != "-1":
+            command.append(f"--gid={gid}")
+
+        if uid != "-1":
+            command.append(f"--uid={gid}")
+
         self._run(
-            command=[
-                "file",
-                "push",
-                source.name,
-                instance_id + destination.as_posix(),
-                "--create-dirs",
-                "--mode",
-                file_mode,
-                "--gid",
-                gid,
-                "--uid",
-                uid,
-            ],
+            command=command,
             project=project,
         )
 
     def info(
-        self, *, remote: str = "local", project: str = "default"
+        self, *, project: str = "default", remote: str = "local"
     ) -> Dict[str, Any]:
         """Get server config that instance is running on."""
-        proc = self._run(command=["info", remote + ":"], project=project,)
+        proc = self._run(
+            command=["info", remote + ":"],
+            project=project,
+        )
         return yaml.load(proc.stdout, Loader=yaml.FullLoader)
 
     def launch(
         self,
         *,
         config_keys: Dict[str, str],
-        instance_id: str,
+        image: str,
         image_remote: str,
-        image_name: str,
+        instance: str,
+        ephemeral: bool = True,
         project: str = "default",
+        remote: str = "local",
     ) -> None:
-        image = ":".join([image_remote, image_name])
-
         command = [
-            "--project",
-            project,
             "launch",
-            image,
-            instance_id,
+            f"{image_remote}:{image}",
+            f"{remote}:{instance}",
         ]
+
+        if ephemeral:
+            command.append("--ephemeral")
 
         for config_key in [f"{k}={v}" for k, v in config_keys.items()]:
             command.extend(["--config", config_key])
 
         self._run(command=command, project=project)
 
-    def list(
-        self, *, project: str = "default"
-    ) -> List[Dict[str, Any]]:
+    def image_copy(
+        self,
+        *,
+        image: str,
+        image_remote: str,
+        alias: str,
+        project: str = "default",
+        remote: str = "local",
+    ) -> None:
+        """Copy image."""
+        self._run(
+            command=[
+                "image",
+                "copy",
+                f"{image_remote}:{image}",
+                f"{remote}:",
+                f"--alias={alias}",
+            ],
+            project=project,
+        )
+
+    def image_delete(
+        self, *, image: str, project: str = "default", remote: str = "local"
+    ) -> None:
+        """Delete image."""
+        self._run(
+            command=[
+                "image",
+                "delete",
+                f"{remote}:{image}",
+            ],
+            project=project,
+        )
+
+    def image_list(
+        self, *, project: str = "default", remote: str = "local"
+    ) -> List[str]:
         """List instances."""
         proc = self._run(
-            command=["list", "--format=yaml"], project=project,
+            command=["image", "list", f"{remote}:", "--format=yaml"],
+            project=project,
+        )
+
+        images = yaml.load(proc.stdout, Loader=yaml.FullLoader)
+        return [i["fingerprint"] for i in images]
+
+    def list(
+        self,
+        *,
+        instance: Optional[str] = None,
+        project: str = "default",
+        remote: str = "local",
+    ) -> List[Dict[str, Any]]:
+        """List instances."""
+        command = ["list", "--format=yaml"]
+        if instance is None:
+            instance = ""
+
+        command.append(f"{remote}:{instance}")
+
+        proc = self._run(
+            command=command,
+            project=project,
         )
 
         return yaml.load(proc.stdout, Loader=yaml.FullLoader)
 
-    def profile_edit(self, *, name: str, project: str = "local", config: Dict[str, Any]) -> None:
-        cfg = yaml.dump(config)
-        self._run(command=["profile", "edit", name], project=project, input=cfg.encode(), stdin=subprocess.PIPE)
+    def profile_edit(
+        self,
+        *,
+        profile: str,
+        config: Dict[str, Any],
+        project: str = "default",
+        remote: str = "local",
+    ) -> None:
+        encoded_config = yaml.dump(config).encode()
+        self._run(
+            command=["profile", "edit", f"{remote}:{profile}"],
+            project=project,
+            input=encoded_config,
+        )
 
-    def profile_show(self, *, name: str, project: str = "local") -> Dict[str, Any]:
+    def profile_show(
+        self, *, profile: str, project: str = "default", remote: str = "local"
+    ) -> Dict[str, Any]:
         """Get profile."""
-        proc = self._run(command=["profile", "show", name], project=project)
+        proc = self._run(
+            command=["profile", "show", f"{remote}:{profile}"], project=project
+        )
+
         return yaml.load(proc.stdout, Loader=yaml.FullLoader)
 
-    def project_create(self, *, name: str) -> None:
+    def project_create(self, *, project: str, remote: str = "local") -> None:
         """Create project."""
-        self._run(command=["project", "create", name])
+        self._run(command=["project", "create", f"{remote}:{project}"])
 
-    def project_list(self) -> List[Dict[str, Any]]:
-        """Get list of remotes.
+    def project_list(self, remote: str = "local") -> List[str]:
+        """Get list of projects.
 
         :returns: dictionary with remote name mapping to config.
         """
-        proc = self._run(command=["project", "list", "--format=yaml"])
-        return yaml.load(proc.stdout, Loader=yaml.FullLoader)
+        proc = self._run(command=["project", "list", remote, "--format=yaml"])
 
-    def project_delete(self, *, name: str) -> None:
+        projects = yaml.load(proc.stdout, Loader=yaml.FullLoader)
+        return sorted([p["name"] for p in projects])
+
+    def project_delete(self, *, project: str, remote: str = "local") -> None:
         """Delete project, if exists."""
-        self._run(command=["project", "delete", name])
+        self._run(command=["project", "delete", f"{remote}:{project}"])
 
-    def remote_add(self, *, name: str, addr: str, protocol: str) -> None:
+    def remote_add(self, *, remote: str, addr: str, protocol: str) -> None:
         """Add a public remote."""
-        self._run(command=["remote", "add", name, addr, f"--protocol={protocol}"])
+        self._run(command=["remote", "add", remote, addr, f"--protocol={protocol}"])
 
-    def remote_list(self) -> List[Dict[str, Any]]:
+    def remote_list(self) -> Dict[str, Any]:
         """Get list of remotes.
 
         :returns: dictionary with remote name mapping to config.
         """
         proc = self._run(command=["remote", "list", "--format=yaml"])
+
         return yaml.load(proc.stdout, Loader=yaml.FullLoader)
 
-    def start(self, *, instance_id: str, project: str = "default") -> None:
-        """Start container."""
-        self._run(command=["start", instance_id], project=project)
+    def setup(self) -> None:
+        if self.lxc_path.exists():
+            return
 
-    def stop(self, *, instance_id: str, project: str = "default") -> None:
+        lxc_path = shutil.which("lxc")
+        if lxc_path is None:
+            lxc_path = "/snap/bin/lxc"
+
+        self.lxc_path = pathlib.Path(lxc_path)
+        if not self.lxc_path.exists():
+            raise RuntimeError("lxc not found in PATH.")
+
+    def start(
+        self, *, instance: str, project: str = "default", remote: str = "local"
+    ) -> None:
+        """Start container."""
+        self._run(command=["start", f"{remote}:{instance}"], project=project)
+
+    def stop(
+        self,
+        *,
+        instance: str,
+        project: str = "default",
+        remote: str = "local",
+        force=True,
+        timeout: int = -1,
+    ) -> None:
         """Stop container."""
-        self._run(command=["stop", instance_id], project=project)
+        command = ["stop", f"{remote}:{instance}"]
+
+        if force:
+            command.append("--force")
+
+        if timeout != "-1":
+            command.append(f"--timeout={timeout}")
+
+        self._run(command=command, project=project)
+
+
+def purge_project(*, lxc: LXC, project: str = "default", remote: str = "local") -> None:
+    """Remove project and any associated bits."""
+    # with contextlib.suppress(subprocess.CalledProcessError):
+    projects = lxc.project_list(remote=remote)
+    if project not in projects:
+        logger.warning(f"Attempted to purge non-existant project {project}.")
+        return
+
+    # Cleanup any outstanding instances.
+    for instance in lxc.list(project=project):
+        logger.warning(f"Deleting instance {instance}.")
+        lxc.delete(instance=instance["name"], project=project, remote=remote)
+
+    # Cleanup any outstanding images.
+    for image in lxc.image_list(project=project):
+        logger.warning(f"Deleting image {image}.")
+        lxc.image_delete(image=image, project=project, remote=remote)
+
+    # Cleanup project.
+    logger.warning(f"Deleting project {project}.")
+    lxc.project_delete(project=project, remote=remote)

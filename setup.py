@@ -39,7 +39,11 @@ setup(
         "Programming Language :: Python :: 3.8",
     ],
     description="*craft tooling",
-    entry_points={"console_scripts": ["xcraft=xcraft.cli:main",],},
+    entry_points={
+        "console_scripts": [
+            "xcraft=xcraft.cli:main",
+        ],
+    },
     install_requires=requirements,
     license="GNU General Public License v3",
     long_description=readme + "\n\n" + history,

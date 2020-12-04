@@ -19,21 +19,21 @@ class HostProvider(ExecutedProvider):
         executor: Executor,
         sudo: bool = True,
         sudo_user: str = "root",
-        interactive: bool = True
     ) -> None:
 
         if executor is None:
             executor = HostExecutor(
-                interactive=interactive, sudo=sudo, sudo_user=sudo_user,
+                sudo=sudo,
+                sudo_user=sudo_user,
             )
 
         super().__init__(
-            interactive=interactive,
             executor=executor,
             default_run_environment=default_run_environment,
         )
 
-    def setup(self) -> None:
+    def setup(self):
+        # TODO Instance class
         pass
 
     def teardown(self, *, clean: bool = False) -> None:

@@ -81,7 +81,8 @@ def test_exec(lxc, project):
     assert proc.stdout == b"this is a test\n"
 
     instances = lxc.list(project=project)
-    assert instances == ["t1"]
+    assert len(instances) == 1
+    assert instances[0]["name"] == "t1"
 
     images = lxc.image_list(project=project)
     assert len(images) == 1
@@ -97,7 +98,8 @@ def test_delete_force(lxc, project):
     )
 
     instances = lxc.list(project=project)
-    assert instances == ["t1"]
+    assert len(instances) == 1
+    assert instances[0]["name"] == "t1"
 
     lxc.delete(instance="t1", force=True, project=project)
 
@@ -112,6 +114,7 @@ def test_delete_no_force(lxc, project):
         image_remote="ubuntu",
         image="16.04",
         project=project,
+        ephemeral=False,
     )
 
     with pytest.raises(subprocess.CalledProcessError):
