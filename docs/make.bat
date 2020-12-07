@@ -9,7 +9,7 @@ if "%SPHINXBUILD%" == "" (
 )
 set SOURCEDIR=.
 set BUILDDIR=_build
-set SPHINXPROJ=xcraft
+set SPHINXPROJ=craft_providers
 
 if "%1" == "" goto help
 

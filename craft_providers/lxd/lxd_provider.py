@@ -60,7 +60,9 @@ class LXDProvider(ExecutedProvider):
         if self.use_intermediate_image:
             intermediate_image = self._setup_intermediate_image()
             return self._setup_instance(
-                instance=self.instance_name, image=intermediate_image, image_remote=self.remote
+                instance=self.instance_name,
+                image=intermediate_image,
+                image_remote=self.remote,
             )
         else:
             return self._setup_instance(
@@ -122,7 +124,8 @@ class LXDProvider(ExecutedProvider):
         images = self.lxc.image_list(project=self.project, remote=self.remote)
         for image in images:
             for alias in image["aliases"]:
-                if intermediate_name == alias:
+                if intermediate_name == alias["name"]:
+                    logger.info("Using intermediate image.")
                     return intermediate_name
 
         intermediate_instance = self._setup_instance(
@@ -133,7 +136,7 @@ class LXDProvider(ExecutedProvider):
 
         # Publish intermediate image.
         self.lxc.publish(
-            alias=self.image,
+            alias=intermediate_name,
             instance=intermediate_name,
             project=self.project,
             remote=self.remote,
@@ -144,7 +147,7 @@ class LXDProvider(ExecutedProvider):
         return intermediate_name
 
     def _setup_project(self) -> None:
-        projects = lxc.project_list(remote=self.remote)
+        projects = self.lxc.project_list(remote=self.remote)
         if self.project in projects:
             return
 

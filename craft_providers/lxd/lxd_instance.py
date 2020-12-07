@@ -7,8 +7,7 @@ from textwrap import dedent
 from time import sleep
 from typing import Any, Dict, List, Optional
 
-from xcraft.executors import Executor
-
+from ..executors import Executor
 from .lxc import LXC
 
 logger = logging.getLogger(__name__)
@@ -232,7 +231,15 @@ class LXDInstance(Executor):
         # First install fuse and udev, snapd requires them.
         # Snapcraft requires dirmngr
         self.execute_run(
-            command=["apt-get", "install", "dirmngr", "udev", "fuse", "--yes"],
+            command=[
+                "apt-get",
+                "install",
+                "dirmngr",
+                "lsb-release",
+                "udev",
+                "fuse",
+                "--yes",
+            ],
             check=True,
         )
 
@@ -246,7 +253,9 @@ class LXDInstance(Executor):
         )
         self.execute_run(command=["systemctl", "start", "snapd"], check=True)
 
-        proc = self.execute_run(command=["lsb_release", "-rs"], check=True)
+        proc = self.execute_run(
+            command=["lsb_release", "-rs"], check=True, stdout=subprocess.PIPE
+        )
         release = proc.stdout.decode()
 
         if float(release) >= 18.04:

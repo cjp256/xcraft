@@ -1,10 +1,9 @@
 import logging
 from typing import Dict
 
-from xcraft.executors.executor import Executor
-from xcraft.executors.host import HostExecutor
-
-from .executed_provider import ExecutedProvider
+from ..executed_provider import ExecutedProvider
+from ..executors.executor import Executor
+from ..executors.host import HostExecutor
 
 logger = logging.getLogger(__name__)
 

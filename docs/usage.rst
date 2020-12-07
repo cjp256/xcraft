@@ -2,6 +2,6 @@
 Usage
 =====
 
-To use xcraft in a project::
+To use craft_providers in a project::
 
-    import xcraft
+    import craft_providers

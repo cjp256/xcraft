@@ -1,4 +1,4 @@
-from xcraft.providers.lxd import LXD
+from craft_providers.lxd import LXD
 
 
 def test_setup():

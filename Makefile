@@ -22,15 +22,17 @@ export PRINT_HELP_PYSCRIPT
 
 BROWSER := python -c "$$BROWSER_PYSCRIPT"
 
-.PHONY: help
-help:
-	@python -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
+.PHONY: autoformat
+autoformat:
+	isort .
+	autoflake --remove-all-unused-imports --ignore-init-module-imports -ri .
+	black .
 
 .PHONY: clean
-clean: clean-build clean-pyc clean-test ## remove all build, test, coverage and Python artifacts
+clean: clean-build clean-pyc clean-test
 
 .PHONY: clean-build
-clean-build: ## remove build artifacts
+clean-build:
 	rm -fr build/
 	rm -fr dist/
 	rm -fr .eggs/
@@ -38,76 +40,83 @@ clean-build: ## remove build artifacts
 	find . -name '*.egg' -exec rm -f {} +
 
 .PHONY: clean-pyc
-clean-pyc: ## remove Python file artifacts
+clean-pyc:
 	find . -name '*.pyc' -exec rm -f {} +
 	find . -name '*.pyo' -exec rm -f {} +
 	find . -name '*~' -exec rm -f {} +
 	find . -name '__pycache__' -exec rm -fr {} +
 
 .PHONY: clean-tests
-clean-test: ## remove test and coverage artifacts
+clean-test:
 	rm -fr .tox/
 	rm -f .coverage
 	rm -fr htmlcov/
 	rm -fr .pytest_cache
 
-.PHONY: autoformat
-autoformat:
-	isort .
-	autoflake --remove-all-unused-imports --ignore-init-module-imports -ri .
-	black .
-
-.PHONY: lint
-lint:
-	flake8 xcraft tests
-	mypy xcraft tests
-
-.PHONY: test-black
-test-black:
-	black --check --diff .
-
-.PHONY: test-isort
-test-isort:
-	isort --check .
-
-.PHONY: test-units
-test-units:
-	pytest
-
-.PHONY: tests
-tests:
-	tox
-
 .PHONY: coverage
-coverage: ## check code coverage quickly with the default Python
-	coverage run --source xcraft -m pytest
+coverage:
+	coverage run --source craft_providers -m pytest
 	coverage report -m
 	coverage html
 	$(BROWSER) htmlcov/index.html
 
 .PHONY: docs
-docs: ## generate Sphinx HTML documentation, including API docs
-	rm -f docs/xcraft.rst
+docs:
+	rm -f docs/craft_providers.rst
 	rm -f docs/modules.rst
-	sphinx-apidoc -o docs/ xcraft
+	sphinx-apidoc -o docs/ craft_providers
 	$(MAKE) -C docs clean
 	$(MAKE) -C docs html
 	$(BROWSER) docs/_build/html/index.html
 
-.PHONY: servedocs
-servedocs: docs ## compile the docs watching for changes
-	watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs html' -R -D .
-
-.PHONY: release
-release: dist ## package and upload a release
-	twine upload dist/*
-
 .PHONY: dist
-dist: clean ## builds source and wheel package
+dist: clean
 	python setup.py sdist
 	python setup.py bdist_wheel
 	ls -l dist
 
+.PHONY: help
+help:
+	@python -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
+
 .PHONY: install
-install: clean ## install the package to the active Python's site-packages
+install: clean
 	python setup.py install
+
+.PHONY: lint
+lint: test-black test-flake8 test-isort test-mypy
+
+.PHONY: release
+release: dist
+	twine upload dist/*
+
+.PHONY: servedocs
+servedocs: docs
+	watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs html' -R -D .
+
+.PHONY: test-black
+test-black:
+	black --check --diff .
+
+.PHONY: test-flake8
+test-flake8:
+	flake8 craft_providers tests
+
+.PHONY: test-units
+test-integrations:
+	pytest tests/integration
+
+.PHONY: test-isort
+test-isort:
+	isort --check .
+
+.PHONY: test-mypy
+test-mypy:
+	mypy craft_providers tests
+
+.PHONY: test-units
+test-units:
+	pytest tests/unit
+
+.PHONY: tests
+tests: lint test-integrations test-units

@@ -1,4 +1,4 @@
-Welcome to xcraft's documentation!
+Welcome to craft_providers's documentation!
 ======================================
 
 .. toctree::

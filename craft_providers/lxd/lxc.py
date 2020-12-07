@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
+from .yaml_loader import _load_yaml
+
 logger = logging.getLogger(__name__)
 
 
@@ -90,7 +92,7 @@ class LXC:
             project=project,
         )
 
-        return yaml.load(proc.stdout, Loader=yaml.FullLoader)
+        return _load_yaml(proc.stdout)
 
     def config_set(
         self,
@@ -259,7 +261,7 @@ class LXC:
             command=["info", remote + ":"],
             project=project,
         )
-        return yaml.load(proc.stdout, Loader=yaml.FullLoader)
+        return _load_yaml(proc.stdout)
 
     def launch(
         self,
@@ -322,14 +324,14 @@ class LXC:
 
     def image_list(
         self, *, project: str = "default", remote: str = "local"
-    ) -> List[str]:
+    ) -> List[Dict[str, Any]]:
         """List instances."""
         proc = self._run(
             command=["image", "list", f"{remote}:", "--format=yaml"],
             project=project,
         )
 
-        return yaml.load(proc.stdout, Loader=yaml.FullLoader)
+        return _load_yaml(proc.stdout)
 
     def list(
         self,
@@ -350,7 +352,7 @@ class LXC:
             project=project,
         )
 
-        return yaml.load(proc.stdout, Loader=yaml.FullLoader)
+        return _load_yaml(proc.stdout)
 
     def profile_edit(
         self,
@@ -375,7 +377,7 @@ class LXC:
             command=["profile", "show", f"{remote}:{profile}"], project=project
         )
 
-        return yaml.load(proc.stdout, Loader=yaml.FullLoader)
+        return _load_yaml(proc.stdout)
 
     def project_create(self, *, project: str, remote: str = "local") -> None:
         """Create project."""
@@ -388,7 +390,7 @@ class LXC:
         """
         proc = self._run(command=["project", "list", remote, "--format=yaml"])
 
-        projects = yaml.load(proc.stdout, Loader=yaml.FullLoader)
+        projects = _load_yaml(proc.stdout)
         return sorted([p["name"] for p in projects])
 
     def project_delete(self, *, project: str, remote: str = "local") -> None:
@@ -425,7 +427,7 @@ class LXC:
         """
         proc = self._run(command=["remote", "list", "--format=yaml"])
 
-        return yaml.load(proc.stdout, Loader=yaml.FullLoader)
+        return _load_yaml(proc.stdout)
 
     def setup(self) -> None:
         if self.lxc_path.exists():

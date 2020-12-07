@@ -5,7 +5,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from typing import List
 
-from xcraft.util import path
+from ..util import path
 
 logger = logging.getLogger(__name__)
 

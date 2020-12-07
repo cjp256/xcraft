@@ -1,8 +1,7 @@
 import logging
 from abc import abstractmethod
 
-from xcraft.executors.executor import Executor
-
+from .executors.executor import Executor
 from .provider import Provider
 
 logger = logging.getLogger(__name__)

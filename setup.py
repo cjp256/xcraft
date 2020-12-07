@@ -4,15 +4,14 @@
 
 from setuptools import find_packages, setup
 
-with open("README.rst") as readme_file:
+with open("README.md") as readme_file:
     readme = readme_file.read()
 
-with open("HISTORY.rst") as history_file:
+with open("HISTORY.md") as history_file:
     history = history_file.read()
 
 requirements = [
-    "Click>=7.0",
-    "pyyaml>=3.5.1",
+    "pyyaml>=5.3.1",
 ]
 
 setup_requirements = [
@@ -24,38 +23,34 @@ test_requirements = [
 ]
 
 setup(
-    author="Canonical",
-    author_email="Canonical",
-    python_requires=">=3.5",
+    author="Canonical Ltd",
+    author_email="Canonical Ltd",
+    python_requires=">=3.8",
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Natural Language :: English",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
     ],
-    description="*craft tooling",
+    description="Craft provider tooling",
     entry_points={
         "console_scripts": [
-            "xcraft=xcraft.cli:main",
+            "craft_providers=craft_providers.cli:main",
         ],
     },
     install_requires=requirements,
     license="GNU General Public License v3",
     long_description=readme + "\n\n" + history,
     include_package_data=True,
-    keywords="xcraft",
-    name="xcraft",
-    package_data={"xcraft": ["py.typed"]},
-    packages=find_packages(include=["xcraft", "xcraft.*"]),
+    keywords="craft_providers",
+    name="craft-providers",
+    package_data={"craft_providers": ["py.typed"]},
+    packages=find_packages(include=["craft_providers", "craft_providers.*"]),
     setup_requires=setup_requirements,
     test_suite="tests",
     tests_require=test_requirements,
-    url="https://github.com/cjp256/xcraft",
+    url="https://github.com/cjp256/craft_providers",
     version="0.1.0",
     zip_safe=False,
 )
