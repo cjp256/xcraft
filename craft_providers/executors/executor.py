@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class Executor(ABC):
-    """Interfaces to execute commmands and move data in/out of an environment."""
+    """Interfaces to execute commands and move data in/out of an environment."""
 
     def __init__(self, *, tar_path: pathlib.Path = None) -> None:
         if tar_path is None:
@@ -21,7 +21,13 @@ class Executor(ABC):
 
     @abstractmethod
     def create_file(
-        self, *, destination: pathlib.Path, content: bytes, file_mode: str
+        self,
+        *,
+        destination: pathlib.Path,
+        content: bytes,
+        file_mode: str,
+        gid: int = 0,
+        uid: int = 0,
     ) -> None:
         """Create file with content and file mode."""
         ...

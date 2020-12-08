@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 
 from ..executed_provider import ExecutedProvider
+from ..images import Image
 from . import LXC, LXD, LXDInstance
 
 logger = logging.getLogger(__name__)
@@ -18,9 +19,9 @@ class LXDProvider(ExecutedProvider):
         self,
         *,
         instance_name: str,
-        image: str = "20.04",
+        image: Image,
         image_remote_addr: str = "https://cloud-images.ubuntu.com/buildd/releases",
-        image_remote_name: str = "snapcraft-buildd-images",
+        image_remote_name: str = "ubuntu-buildd",
         image_remote_protocol: str = "simplestreams",
         instance: Optional[LXDInstance] = None,
         lxc: Optional[LXC] = None,
@@ -55,21 +56,26 @@ class LXDProvider(ExecutedProvider):
     def setup(self) -> LXDInstance:
         self.lxd.setup()
         self.lxc.setup()
+
         self._setup_image_remote()
 
         if self.use_intermediate_image:
             intermediate_image = self._setup_intermediate_image()
-            return self._setup_instance(
+            self.instance = self._setup_instance(
                 instance=self.instance_name,
                 image=intermediate_image,
                 image_remote=self.remote,
+                ephemeral=self.use_ephemeral_instances,
             )
         else:
-            return self._setup_instance(
+            self.instance = self._setup_instance(
                 instance=self.instance_name,
-                image=self.image,
+                image=self.image.version,
                 image_remote=self.image_remote_name,
+                ephemeral=self.use_ephemeral_instances,
             )
+
+        return self.instance
 
     def _setup_image_remote(self) -> None:
         """Add a public remote."""
@@ -94,32 +100,42 @@ class LXDProvider(ExecutedProvider):
         )
 
     def _setup_instance(
-        self, *, instance: str, image: str, image_remote: str
+        self,
+        *,
+        instance: str,
+        image: str,
+        image_remote: str,
+        ephemeral: bool,
     ) -> LXDInstance:
         lxd_instance = LXDInstance(
             name=instance,
-            image=image,
             project=self.project,
             remote=self.remote,
             lxc=self.lxc,
         )
 
         if lxd_instance.exists():
+            # TODO: add verififcation that instance matches
             if not lxd_instance.is_running():
                 lxd_instance.start()
-            # TODO: add verififcation that instance matches
         else:
             lxd_instance.launch(
                 image=image,
                 image_remote=image_remote,
-                ephemeral=self.use_ephemeral_instances,
+                ephemeral=ephemeral,
             )
 
-        lxd_instance.setup()
+        self.image.setup(executor=lxd_instance)
         return lxd_instance
 
     def _setup_intermediate_image(self) -> str:
-        intermediate_name = self.image_remote_name + "-" + self.image.replace(".", "-")
+        intermediate_name = "-".join(
+            [
+                self.image_remote_name,
+                self.image.version.replace(".", "-"),
+                f"r{self.image.revision}",
+            ]
+        )
 
         images = self.lxc.image_list(project=self.project, remote=self.remote)
         for image in images:
@@ -128,10 +144,12 @@ class LXDProvider(ExecutedProvider):
                     logger.info("Using intermediate image.")
                     return intermediate_name
 
+        # Intermediate instances cannot be ephemeral. Publishing may fail.
         intermediate_instance = self._setup_instance(
             instance=intermediate_name,
-            image=self.image,
+            image=self.image.version,
             image_remote=self.image_remote_name,
+            ephemeral=False,
         )
 
         # Publish intermediate image.
@@ -140,6 +158,7 @@ class LXDProvider(ExecutedProvider):
             instance=intermediate_name,
             project=self.project,
             remote=self.remote,
+            force=True,
         )
 
         # Nuke it.
@@ -153,6 +172,9 @@ class LXDProvider(ExecutedProvider):
 
     def teardown(self, *, clean: bool = False) -> None:
         if self.instance is None:
+            return
+
+        if not self.instance.exists():
             return
 
         if self.instance.is_running():

@@ -3,8 +3,6 @@ import os
 import pathlib
 import subprocess
 import tempfile
-from textwrap import dedent
-from time import sleep
 from typing import Any, Dict, List, Optional
 
 from ..executors import Executor
@@ -19,13 +17,11 @@ class LXDInstance(Executor):
     def __init__(
         self,
         *,
-        image: str,
         name: str,
         project: str = "default",
         remote: str = "local",
         lxc: Optional[LXC] = None,
     ):
-        self.image = image
         self.name = name
         self.project = project
         self.remote = remote
@@ -164,108 +160,6 @@ class LXDInstance(Executor):
             remote=self.remote,
         )
 
-    def setup(self) -> None:
-        self.create_file(
-            destination=pathlib.Path("/etc/systemd/network/10-eth0.network"),
-            content=dedent(
-                """
-                [Match]
-                Name=eth0
-
-                [Network]
-                DHCP=ipv4
-                LinkLocalAddressing=ipv6
-
-                [DHCP]
-                RouteMetric=100
-                UseMTU=true
-                """
-            ).encode(),
-            file_mode="0644",
-        )
-
-        self.create_file(
-            destination=pathlib.Path("/etc/hostname"),
-            content=self.name.encode(),
-            file_mode="0644",
-        )
-
-        self._setup_wait_for_systemd()
-
-        self.execute_run(
-            command=["systemctl", "enable", "systemd-networkd"], check=True
-        )
-
-        self.execute_run(
-            command=["systemctl", "restart", "systemd-networkd"], check=True
-        )
-
-        # Use resolv.conf managed by systemd-resolved.
-        self.execute_run(
-            command=[
-                "ln",
-                "-sf",
-                "/run/systemd/resolve/resolv.conf",
-                "/etc/resolv.conf",
-            ],
-            check=True,
-        )
-
-        self.execute_run(
-            command=["systemctl", "enable", "systemd-resolved"], check=True
-        )
-
-        self.execute_run(
-            command=["systemctl", "restart", "systemd-resolved"], check=True
-        )
-
-        self.execute_run(
-            command=["systemctl", "restart", "systemd-networkd"], check=True
-        )
-
-        self._setup_wait_for_network()
-
-        # Setup snapd to bootstrap.
-        self.execute_run(command=["apt-get", "update"], check=True)
-
-        # First install fuse and udev, snapd requires them.
-        # Snapcraft requires dirmngr
-        self.execute_run(
-            command=[
-                "apt-get",
-                "install",
-                "dirmngr",
-                "lsb-release",
-                "udev",
-                "fuse",
-                "--yes",
-            ],
-            check=True,
-        )
-
-        # the system needs networking
-        self.execute_run(command=["systemctl", "enable", "systemd-udevd"], check=True)
-        self.execute_run(command=["systemctl", "start", "systemd-udevd"], check=True)
-
-        # And only then install snapd.
-        self.execute_run(
-            command=["apt-get", "install", "snapd", "sudo", "--yes"], check=True
-        )
-        self.execute_run(command=["systemctl", "start", "snapd"], check=True)
-
-        proc = self.execute_run(
-            command=["lsb_release", "-rs"], check=True, stdout=subprocess.PIPE
-        )
-        release = proc.stdout.decode()
-
-        if float(release) >= 18.04:
-            self.execute_run(
-                command=["snap", "wait", "system", "seed.loaded"], check=True
-            )
-        else:
-            # XXX: better way to ensure snapd is ready on core?
-            sleep(5)
-
     def _host_supports_mknod(self) -> bool:
         """Enable mknod in container, if possible.
 
@@ -277,34 +171,6 @@ class LXDInstance(Executor):
         seccomp_listener = kernel_features.get("seccomp_listener", "false")
 
         return seccomp_listener == "true"
-
-    def _setup_wait_for_network(self) -> None:
-        logger.info("Waiting for network to be ready...")
-        for i in range(40):
-            proc = self.execute_run(
-                command=["getent", "hosts", "snapcraft.io"], stdout=subprocess.DEVNULL
-            )
-            if proc.returncode == 0:
-                break
-            sleep(0.5)
-        else:
-            logger.warning("Failed to setup networking.")
-
-    def _setup_wait_for_systemd(self) -> None:
-        # systemctl states we care about here are:
-        # - running: The system is fully operational. Process returncode: 0
-        # - degraded: The system is operational but one or more units failed.
-        #             Process returncode: 1
-        for i in range(40):
-            proc = self.execute_run(
-                command=["systemctl", "is-system-running"], stdout=subprocess.PIPE
-            )
-            if proc.stdout is not None:
-                running_state = proc.stdout.decode().strip()
-                if running_state in ["running", "degraded"]:
-                    break
-                logger.debug(f"systemctl is-system-running: {running_state!r}")
-                sleep(0.5)
 
     def start(self) -> None:
         self.lxc.start(instance=self.name, project=self.project, remote=self.remote)

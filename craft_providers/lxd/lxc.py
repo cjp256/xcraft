@@ -462,7 +462,7 @@ class LXC:
         if force:
             command.append("--force")
 
-        if timeout != "-1":
+        if timeout != -1:
             command.append(f"--timeout={timeout}")
 
         self._run(command=command, project=project)
@@ -473,7 +473,7 @@ def purge_project(*, lxc: LXC, project: str = "default", remote: str = "local") 
     # with contextlib.suppress(subprocess.CalledProcessError):
     projects = lxc.project_list(remote=remote)
     if project not in projects:
-        logger.warning(f"Attempted to purge non-existant project {project}.")
+        logger.warning(f"Attempted to purge non-existent project {project}.")
         return
 
     # Cleanup any outstanding instances.

@@ -98,9 +98,13 @@ servedocs: docs
 test-black:
 	black --check --diff .
 
+.PHONY: test-codespell
+test-codespell:
+	codespell .
+
 .PHONY: test-flake8
 test-flake8:
-	flake8 craft_providers tests
+	flake8 .
 
 .PHONY: test-units
 test-integrations:
@@ -112,7 +116,7 @@ test-isort:
 
 .PHONY: test-mypy
 test-mypy:
-	mypy craft_providers tests
+	mypy .
 
 .PHONY: test-units
 test-units:

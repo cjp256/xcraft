@@ -9,7 +9,8 @@ pip
 pytest
 pytest-runner
 pyyaml
-Sphinx
+sphinx
+sphinx-rtd-theme
 tox
 twine
 wheel
